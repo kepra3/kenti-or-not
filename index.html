@@ -130,9 +130,9 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
   <header>
     <h1>Kenti <span>or not?</span></h1>
     <div class="tabs" role="tablist">
-      <button id="t-kenti" role="tab" aria-selected="true">Kenti or other</button>
+      <button id="t-round" role="tab" aria-selected="true">20-sample round</button>
+      <button id="t-kenti" role="tab" aria-selected="false">Kenti or other</button>
       <button id="t-hard" role="tab" aria-selected="false">Hard mode</button>
-      <button id="t-round" role="tab" aria-selected="false">20-sample round</button>
       <button id="t-res" role="tab" aria-selected="false">Results</button>
       <button id="t-check" role="tab" aria-selected="false" hidden>Check photos</button>
       <button id="t-saved" role="tab" aria-selected="false" hidden>Saved checks</button>
@@ -478,7 +478,7 @@ document.addEventListener("keydown",e=>{
 
 /* ---- boot ---- */
 try{ const l=JSON.parse(localStorage.getItem("kenti-or-not-v2")||"null"); if(l&&l.kenti){ mine={kenti:l.kenti||{},hard:l.hard||{}}; reports=l.reports||{}; rounds=l.rounds||[]; qflags=l.qflags||{}; } }catch(e){}
-buildQueue(); renderGame();
+show("round");
 (async()=>{
   const C=window.claude; if(!C||!C.use){ $("gSave").textContent="Saved on this device only"; return; }
   const timer=setTimeout(()=>{ if(!myRef) $("gSave").textContent="Saved on this device only"; },10000);
