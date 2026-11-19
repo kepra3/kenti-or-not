@@ -91,6 +91,17 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
 .sub button{border:0;background:none;color:var(--muted);font:600 .8rem var(--body);padding:6px 12px;border-radius:9px;cursor:pointer}
 .sub button[aria-pressed="true"]{background:var(--yes);color:var(--ink-on-accent)}
 .choose{display:grid;gap:10px}
+.lbform{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.lbform label{display:flex;gap:8px;align-items:center;font-size:.88rem;cursor:pointer}
+.lbform .rowf{display:flex;gap:8px;flex-wrap:wrap}
+.lbform input[type=text]{flex:1;min-width:160px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:10px;padding:10px;font:400 .95rem var(--body)}
+.lbform .btn{padding:10px 14px;font-size:.9rem}
+.lbcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.lbcol{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.lbcol h3{font:700 1rem var(--display);margin:0 0 8px}
+.lbcol ol{margin:0;padding-left:1.6em;display:flex;flex-direction:column;gap:4px}
+.lbcol li{font-size:.9rem}
+.lbcol li span{float:right;font:600 .9rem var(--mono);font-variant-numeric:tabular-nums}
 .choose button{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--fg);display:flex;flex-direction:column;gap:4px}
 .choose button b{font:700 1.05rem var(--display)}
 .choose button span{font-size:.84rem;color:var(--muted)}
@@ -136,6 +147,7 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
       <button id="t-round" role="tab" aria-selected="true">Kenti or not</button>
       <button id="t-rhard" role="tab" aria-selected="false">Hard mode</button>
       <button id="t-all" role="tab" aria-selected="false">Categorise all</button>
+      <button id="t-lead" role="tab" aria-selected="false" hidden>Leaderboard</button>
       <button id="t-res" role="tab" aria-selected="false">Results</button>
       <button id="t-check" role="tab" aria-selected="false" hidden>Check photos</button>
       <button id="t-saved" role="tab" aria-selected="false" hidden>Saved checks</button>
@@ -168,6 +180,12 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
       <button class="link" id="bUndo">Undo last</button>
       <span class="keys">← / → choose · M millepora · ↓ not sure · B blurry · O zoomed out · R report photo · space photo · Z undo</span>
     </div>
+  </section>
+
+  <section id="v-lead" hidden>
+    <div class="note">Best round score for each name. Names only appear when a player ticks "Show my name" at the end of a round.</div>
+    <div class="ckfilters"><button class="link" id="lbRefresh">Refresh</button><span id="lbStatus"></span></div>
+    <div class="lbcols" id="lbBox"></div>
   </section>
 
   <section id="v-res" hidden>
@@ -212,6 +230,28 @@ const MODES = {
 const $ = id => document.getElementById(id);
 /* Google Sheet logging: only on the self-hosted copy (set window.SHEET_URL in config.js) */
 function anonId(){ try{ let v=localStorage.getItem("kon-player"); if(!v){ v="p"+Math.random().toString(36).slice(2,10); localStorage.setItem("kon-player",v); } return v; }catch(e){ return "anon"; } }
+function lbOn(){ return !!window.SHEET_URL && !window.claude; }
+function lbPref(){ try{ return JSON.parse(localStorage.getItem("kon-lb")||"{}"); }catch(e){ return {}; } }
+function submitLb(){
+  const r=round; if(!r||r.lb) return;
+  const show=$("lbShow").checked, name=$("lbName").value.trim().replace(/\s+/g," ").slice(0,30);
+  try{ localStorage.setItem("kon-lb",JSON.stringify({show,name})); }catch(e){}
+  if(!show){ $("lbMsg").textContent="Tick the box to show your name."; return; }
+  if(!name){ $("lbMsg").textContent="Type a name first."; $("lbName").focus(); return; }
+  const sc=roundScore(r);
+  logRow("leader",{mode:r.m==="kenti"?"Kenti or not":"Hard mode",name,score:sc.right,out_of:r.ids.length,skipped:sc.skipped});
+  r.lb="sent"; r.lbName=name; renderGame();
+}
+async function loadLeaderboard(){
+  if(!lbOn()) return;
+  $("lbStatus").textContent="Loading…";
+  try{
+    const res=await fetch(window.SHEET_URL+"?action=leaderboard",{cache:"no-store"}); const d=await res.json();
+    const col=(title,list)=>`<div class="lbcol"><h3>${title}</h3>${list&&list.length?`<ol>${list.map(x=>`<li>${esc(x.name)}<span>${x.score}/${x.out_of}</span></li>`).join("")}</ol>`:`<p class="site">No names yet. Finish a round and tick "Show my name".</p>`}</div>`;
+    $("lbBox").innerHTML=col("Kenti or not",d.kenti)+col("Hard mode",d.hard);
+    $("lbStatus").textContent="Updated "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  }catch(e){ $("lbStatus").textContent="Couldn't load the leaderboard. Try Refresh in a moment."; }
+}
 function logRow(kind,data){
   const url=window.SHEET_URL; if(!url||window.claude) return;
   try{ fetch(url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({kind,player:anonId()},data))}).catch(()=>{}); }catch(e){}
@@ -299,6 +339,10 @@ function renderGame(){
       <div class="site">${r.m==="kenti"?"Kenti or not":"Hard mode"} · ${sc.skipped?`${sc.skipped} skipped, which count as wrong`:"no skips"}${bestOf(r.m)!==null?` · your best ${bestOf(r.m)}/20`:""}</div>
       <div class="rlist">${r.ans.map(a=>{const x=byId[a.id],sk=SKIPS.includes(a.v),ok=!sk&&isRight(r.m,x,a.v);
         return `<div><span class="${sk?"sk":ok?"ok":"no"}">${sk?"–":ok?"✓":"✕"}</span><span>${esc(x.label)} · you said ${vName(r.m,a.v)}</span><span class="site">${catText(x)}</span></div>`}).join("")}</div>
+      ${lbOn()?(r.lb?`<div class="lbform"><span class="site">${r.lb==="sent"?"✓ Added to the leaderboard as "+esc(r.lbName):"Saving…"}</span></div>`:`<div class="lbform">
+        <label><input type="checkbox" id="lbShow" ${lbPref().show?"checked":""}> Show my name with my score on the leaderboard</label>
+        <div class="rowf"><input type="text" id="lbName" maxlength="30" placeholder="Your name or nickname" value="${esc(lbPref().name||"")}"><button class="btn" style="background:var(--ken)" data-lb="1">Add my score</button></div>
+        <span class="site" id="lbMsg"></span></div>`):""}
       <div class="again"><button class="btn" style="background:var(--yes)" data-start="${r.m}">Play again</button><button class="btn flag" data-tab="${r.m==="kenti"?"rhard":"round"}">Try ${r.m==="kenti"?"hard mode":"Kenti or not"}</button></div></div>`; return; }
   if(!on){ st.innerHTML=`<div class="empty"><h2>You've called every sample</h2><p>See how you did on the Results tab.</p></div>`; return; }
   if(queue[1]){const u=document.createElement("div");u.className="card under";u.innerHTML=cardHTML(byId[queue[1]],true);st.appendChild(u)}
@@ -451,7 +495,8 @@ function saveCheck(id,c){
 
 /* ---- tabs & keys ---- */
 function show(t){
-  for(const k of ["round","rhard","all","res","check","saved"]) $("t-"+k).setAttribute("aria-selected",k===t);
+  for(const k of ["round","rhard","all","lead","res","check","saved"]) $("t-"+k).setAttribute("aria-selected",k===t);
+  $("v-lead").hidden=t!=="lead"; if(t==="lead") loadLeaderboard();
   const game=t==="round"||t==="rhard"||t==="all";
   $("v-game").hidden=!game; $("v-game").style.display=game?"contents":"none";
   const ckv=t==="check"||t==="saved";
@@ -474,8 +519,11 @@ function show(t){
 }
 function setAllSwitch(){ document.querySelectorAll("#allSwitch button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.all===allMode)); }
 document.querySelectorAll("#allSwitch button").forEach(b=>b.addEventListener("click",()=>{ allMode=b.dataset.all; show("all"); }));
-for(const k of ["round","rhard","all","res","check","saved"]) $("t-"+k).onclick=()=>show(k);
-$("stage").addEventListener("click",e=>{ const b=e.target.closest("[data-start]"); if(b){ startRound(b.dataset.start); return; } const tb=e.target.closest("[data-tab]"); if(tb) show(tb.dataset.tab); });
+for(const k of ["round","rhard","all","lead","res","check","saved"]) $("t-"+k).onclick=()=>show(k);
+$("t-lead").hidden=!lbOn();
+$("stage").addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.id==="lbName"){ e.preventDefault(); submitLb(); } });
+$("lbRefresh").addEventListener("click",loadLeaderboard);
+$("stage").addEventListener("click",e=>{ if(e.target.closest("[data-lb]")){ submitLb(); return; } const b=e.target.closest("[data-start]"); if(b){ startRound(b.dataset.start); return; } const tb=e.target.closest("[data-tab]"); if(tb) show(tb.dataset.tab); });
 $("bL").onclick=()=>decide(MODES[mode].L.v,-1); $("bR").onclick=()=>decide(MODES[mode].R.v,1); $("bM").onclick=()=>decide("unsure",0); $("bB").onclick=()=>decide("blurry",0); $("bO").onclick=()=>decide("zoomed",0);
 $("bX").onclick=()=>{ if(mode==="kenti") decide("millepora",-1); };
 $("bUndo").onclick=undo; $("bRep").onclick=report;
