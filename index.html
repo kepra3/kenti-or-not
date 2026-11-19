@@ -101,6 +101,9 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
 .lbcol h3{font:700 1rem var(--display);margin:0 0 8px}
 .lbcol ol{margin:0;padding-left:1.6em;display:flex;flex-direction:column;gap:4px}
 .lbcol li{font-size:.9rem}
+.strow{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.strow img{width:72px;height:54px;object-fit:cover;border-radius:6px;background:#0c2124;cursor:zoom-in}
+.strow .pct{font:700 1rem var(--mono)}
 .lbcol li span{float:right;font:600 .9rem var(--mono);font-variant-numeric:tabular-nums}
 .choose button{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--fg);display:flex;flex-direction:column;gap:4px}
 .choose button b{font:700 1.05rem var(--display)}
@@ -151,6 +154,7 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
       <button id="t-res" role="tab" aria-selected="false">Results</button>
       <button id="t-check" role="tab" aria-selected="false" hidden>Check photos</button>
       <button id="t-saved" role="tab" aria-selected="false" hidden>Saved checks</button>
+      <button id="t-stats" role="tab" aria-selected="false" hidden>Photo stats</button>
     </div>
   </header>
 
@@ -186,6 +190,16 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
     <div class="note">Best round score for each name. Names only appear when a player ticks "Show my name" at the end of a round.</div>
     <div class="ckfilters"><button class="link" id="lbRefresh">Refresh</button><span id="lbStatus"></span></div>
     <div class="lbcols" id="lbBox"></div>
+  </section>
+
+  <section id="v-stats" hidden>
+    <div class="note">How often signed-in players got each sample right, from Categorise all and from 20-sample rounds. Skips such as Not sure, Too blurry and Too zoomed out don't count. Public players' calls are in your Google Sheet; ask Claude to merge both into one spreadsheet.</div>
+    <div class="ckfilters">
+      <div class="sub" id="stMode"><button data-st="kenti" aria-pressed="true">Kenti or other</button><button data-st="hard" aria-pressed="false">Yunbenun or Widespread</button></div>
+      <label>At least <select id="stMin"><option>1</option><option selected>3</option><option>5</option><option>10</option></select> calls</label>
+      <span id="stSum"></span>
+    </div>
+    <div class="lbcols" id="stBox"></div>
   </section>
 
   <section id="v-res" hidden>
@@ -278,7 +292,7 @@ function isRight(m,s,v){ if(v==="millepora") return s.cat==="other"; return v===
 function vName(m,v){ return {unsure:"not sure",blurry:"too blurry",zoomed:"too zoomed out",millepora:"Millepora"}[v] || MODES[m].name(v); }
 let db=null, me=null, myRef=null, isOwner=false;
 let mode="kenti", inRound=false, round=null, rounds=[], roundBy={kenti:null,hard:null}, allMode="kenti";
-let mine={kenti:{},hard:{}}, everyone={}, checks={}, reports={}, qflags={};
+let mine={kenti:{},hard:{}}, everyone={}, checks={}, reports={}, qflags={}, tally={kenti:{},hard:{}};
 let queue=[], history={kenti:[],hard:[]}, photoIdx=0, saving=Promise.resolve();
 
 /* ---- photo bundles ---- */
@@ -299,10 +313,10 @@ function good(s){ const c=checks[s.id]; return (c&&c.photos)? s.photos.filter((p
 function pool(m){ return SAMPLES.filter(s=>MODES[m].pool(s) && good(s).length && !zoomedOut(s.id)); }
 function shuffleRandom(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a; }
 function startRound(m){
-  const P=pool(m).filter(s=>!zoomedOut(s.id)), A=m==="kenti"?P.filter(s=>s.cat!=="other"):P.filter(s=>s.cat==="mag"), B=m==="kenti"?P.filter(s=>s.cat==="other"):P.filter(s=>s.cat==="ken");
-  const ids=shuffleRandom([...shuffleRandom(A).slice(0,10),...shuffleRandom(B).slice(0,10)].map(s=>s.id));
+  const P=pool(m);
+  const ids=shuffleRandom(P.map(s=>s.id)).slice(0,20);
   round={m,ids,ans:[]}; roundBy[m]=round; mode=m; photoIdx=0; buildQueue();
-  $("toast").className="toast"; $("toastText").textContent="20 samples, half of each answer. Your score shows at the end.";
+  $("toast").className="toast"; $("toastText").textContent="20 samples drawn at random. Your score shows at the end.";
   renderGame();
 }
 function roundScore(r){ const scored=r.ans.filter(a=>!SKIPS.includes(a.v)); return {right:scored.filter(a=>isRight(r.m,byId[a.id],a.v)).length, skipped:r.ans.length-scored.length}; }
@@ -338,8 +352,8 @@ function renderGame(){
   if(!on && inRound && !round){ $("bRep").disabled=true;
     const b1=bestOf("kenti"), b2=bestOf("hard");
     st.innerHTML=`<div class="choose">
-      <button data-start="kenti"><b>Kenti or other</b><span>10 kenti and 10 other samples, shuffled. Photos marked too zoomed out are left out.${b1!==null?` Your best: ${b1}/20.`:""}</span></button>
-      <button data-start="hard"><b>Hard mode: Yunbenun or Widespread</b><span>10 of each lineage, shuffled. Samples marked too zoomed out are left out.${b2!==null?` Your best: ${b2}/20.`:""}</span></button></div>`; return; }
+      <button data-start="kenti"><b>Kenti or other</b><span>20 samples drawn at random. Photos marked too zoomed out are left out.${b1!==null?` Your best: ${b1}/20.`:""}</span></button>
+      <button data-start="hard"><b>Hard mode: Yunbenun or Widespread</b><span>20 samples drawn at random. Samples marked too zoomed out are left out.${b2!==null?` Your best: ${b2}/20.`:""}</span></button></div>`; return; }
   if(!on && inRound){ $("bRep").disabled=true; const r=round, sc=roundScore(r), M2=MODES[r.m];
     st.innerHTML=`<div class="final">
       <div class="big">${sc.right}<small> / ${r.ids.length}</small></div>
@@ -377,14 +391,14 @@ function decide(v,dir){
   const fin=()=>{
     if(v==="zoomed"||v==="blurry"){ (qflags[id] ||= {})[v]=Date.now(); }
     logRow("call",{mode:inRound?"round-"+round.m:mode,sample:s.label,sample_id:id,site:s.site,truth:CAT[s.cat],field_call:s.morph||"",call:vName(inRound?round.m:mode,v),correct:SKIPS.includes(v)?"":(isRight(inRound?round.m:mode,s,v)?"yes":"no")});
-    if(inRound){ round.ans.push({id,v}); } else { mine[mode][id]={v,t:Date.now()}; history[mode].push(id); }
+    if(inRound){ round.ans.push({id,v}); if(!SKIPS.includes(v)){ const t2=(tally[round.m][id] ||= [0,0]); t2[isRight(round.m,s,v)?0:1]++; } } else { mine[mode][id]={v,t:Date.now()}; history[mode].push(id); }
     queue.shift(); photoIdx=0;
     const t=$("toast"), field=s.morph?` · field call: ${esc(s.morph)}`:"";
     if(SKIPS.includes(v)){ t.className="toast"; $("toastText").innerHTML=`${v==="blurry"?"Marked too blurry. ":v==="zoomed"?"Marked too zoomed out. ":""}${esc(s.label)} was <b>${catText(s)}</b>${s.morph?` · field call: ${esc(s.morph)}`:""}`; }
     else if(isRight(mode,s,v)){ t.className="toast good"; $("toastText").innerHTML=`✓ Correct${v==="millepora"?(s.morph==="millepora"?": it's Other, and most likely millepora because the field call agrees":": it's Other, not kenti, but millepora isn't confirmed"):""}. ${esc(s.label)} is <b>${catText(s)}</b>${s.morph?` · field call: ${esc(s.morph)}`:""}`; }
     else { t.className="toast bad"; $("toastText").innerHTML=`✕ Not quite. ${esc(s.label)} is <b>${catText(s)}</b>${s.morph?` · field call: ${esc(s.morph)}`:""}`; }
     renderGame();
-    if(inRound && (v==="zoomed"||v==="blurry") && round.ans.length<round.ids.length) persist();
+    if(inRound && round.ans.length<round.ids.length) persist();
     if(inRound){ if(round.ans.length===round.ids.length){ const sc=roundScore(round); rounds.push({m:round.m,score:sc.right,n:round.ids.length,skipped:sc.skipped,t:Date.now()});
       logRow("round",{mode:round.m==="kenti"?"Kenti or other":"Hard mode",score:sc.right,out_of:round.ids.length,skipped:sc.skipped}); rounds=rounds.slice(-200); renderGame(); persist(); } }
     else persist();
@@ -394,15 +408,15 @@ function decide(v,dir){
   } else fin();
 }
 function undo(){
-  if(inRound){ if(!round||!round.ans.length||round.ans.length===round.ids.length) return; const a=round.ans.pop(); logRow("undo",{mode:"round-"+round.m,sample:byId[a.id].label,sample_id:a.id}); queue.unshift(a.id); photoIdx=0;
+  if(inRound){ if(!round||!round.ans.length||round.ans.length===round.ids.length) return; const a=round.ans.pop(); if(!SKIPS.includes(a.v)){ const t2=tally[round.m][a.id]; if(t2){ t2[isRight(round.m,byId[a.id],a.v)?0:1]--; if(t2[0]<=0&&t2[1]<=0) delete tally[round.m][a.id]; } } logRow("undo",{mode:"round-"+round.m,sample:byId[a.id].label,sample_id:a.id}); queue.unshift(a.id); photoIdx=0;
     $("toast").className="toast"; $("toastText").textContent=`Undone. ${byId[a.id].label} is back on top.`; renderGame(); return; }
   const id=history[mode].pop(); if(id) logRow("undo",{mode,sample:byId[id].label,sample_id:id}); if(!id) return; delete mine[mode][id]; queue.unshift(id); photoIdx=0;
   $("toast").className="toast"; $("toastText").textContent=`Undone. ${byId[id].label} is back on top.`; renderGame(); persist(); }
 function persist(){
-  try{localStorage.setItem("kenti-or-not-v2",JSON.stringify(Object.assign({reports,rounds,qflags},mine)))}catch(e){}
+  try{localStorage.setItem("kenti-or-not-v2",JSON.stringify(Object.assign({reports,rounds,qflags,tally},mine)))}catch(e){}
   if(!myRef){ $("gSave").textContent="Saved on this device only"; return; }
   $("gSave").textContent="Saving…"; const snap=JSON.parse(JSON.stringify(mine));
-  saving=saving.then(()=>myRef.set({kenti:snap.kenti,hard:snap.hard,rounds:rounds.slice(-200),qflags:JSON.parse(JSON.stringify(qflags)),reports:JSON.parse(JSON.stringify(reports)),updated:Date.now()}))
+  saving=saving.then(()=>myRef.set({kenti:snap.kenti,hard:snap.hard,rounds:rounds.slice(-200),qflags:JSON.parse(JSON.stringify(qflags)),tally:JSON.parse(JSON.stringify(tally)),reports:JSON.parse(JSON.stringify(reports)),updated:Date.now()}))
     .then(()=>{$("gSave").textContent="Saved"})
     .catch(e=>{$("gSave").textContent=e&&e.code==="not_granted"?"You can play, but your calls aren't saved: ask the owner for access":"Could not save; will retry on your next swipe"});
 }
@@ -448,6 +462,30 @@ function newReport(s){ const t=lastRep(s.id); return t && t>((checks[s.id]||{}).
 function ckFiltered(){ const cat=$("ckCat").value, flag=$("ckFlag").checked, rp=$("ckRep").checked;
   const list=SAMPLES.filter(s=>(cat==="all"||s.cat===cat)&&(ckMode==="saved"?isChecked(s):!isChecked(s))&&(!flag||hasProblem(s))&&(!rp||repCount(s.id)));
   return list.sort((a,b)=>(repCount(b.id)>0)-(repCount(a.id)>0)); }
+let stMode="kenti";
+function sampleStats(m){
+  const out={};
+  for(const a of Object.values(everyone)){ if(!a) continue;
+    for(const [sid,x] of Object.entries(a[m]||{})){ const s=byId[sid]; if(!s||!x||SKIPS.includes(x.v)) continue; const o=(out[sid] ||= [0,0]); o[isRight(m,s,x.v)?0:1]++; }
+    for(const [sid,t] of Object.entries((a.tally||{})[m]||{})){ if(!byId[sid]||!Array.isArray(t)) continue; const o=(out[sid] ||= [0,0]); o[0]+=Math.max(0,+t[0]||0); o[1]+=Math.max(0,+t[1]||0); }
+  }
+  return out;
+}
+function renderStats(){
+  const st=sampleStats(stMode), min=+$("stMin").value;
+  const rows=Object.entries(st).map(([id,[r,w]])=>({s:byId[id],r,w,n:r+w,p:(r+w)?r/(r+w):0})).filter(x=>x.s&&x.n>=min);
+  const right=rows.filter(x=>x.p>0.5).sort((a,b)=>b.p-a.p||b.n-a.n), wrong=rows.filter(x=>x.p<0.5).sort((a,b)=>a.p-b.p||b.n-a.n), even=rows.filter(x=>x.p===0.5).length;
+  const calls=rows.reduce((a,x)=>a+x.n,0);
+  $("stSum").textContent=`${rows.length} samples · ${calls} calls${even?` · ${even} split 50/50`:""}`;
+  const col=(title,list)=>`<div class="lbcol"><h3>${title} (${list.length})</h3>${list.length?list.map(x=>`<div class="strow"><img data-sid="${x.s.id}" data-pid="${x.s.photos[0].id}" alt="${esc(x.s.label)}" data-zoom="1">
+    <div style="min-width:0"><div class="name">${esc(x.s.label)} <span class="pill c-${x.s.cat}">${CAT[x.s.cat]}</span></div><div class="sub">${esc(x.s.site)}${x.s.morph?" · field: "+esc(x.s.morph):""}</div></div>
+    <div class="pct" style="color:var(--${x.p>0.5?"yes":"no"})">${Math.round(100*x.p)}%<br><span class="sub">${x.r} of ${x.n}</span></div></div>`).join(""):`<p class="site">None yet with at least ${min} ${min===1?"call":"calls"}.</p>`}</div>`;
+  $("stBox").innerHTML=col("Mostly right",right)+col("Mostly wrong",wrong);
+  fillImages($("stBox"));
+}
+document.querySelectorAll("#stMode button").forEach(b=>b.addEventListener("click",()=>{ stMode=b.dataset.st; document.querySelectorAll("#stMode button").forEach(x=>x.setAttribute("aria-pressed",x===b)); renderStats(); }));
+$("stMin").addEventListener("change",renderStats);
+$("stBox").addEventListener("click",e=>{ const z=e.target.closest("img[data-zoom]"); if(z&&z.src){ const zm=$("zoom"); zm.querySelector("img").src=z.src; zm.hidden=false; } });
 function flagCount(id,v){ let n=0; for(const a of Object.values(everyone)){ if(!a) continue;
   const hit=(a.qflags&&a.qflags[id]&&a.qflags[id][v]) || ["kenti","hard"].some(m=>a[m]&&a[m][id]&&a[m][id].v===v); if(hit) n++; } return n; }
 function zoomedOut(id){ if(ZOOMED_FIXED.has(id)||sheetZoomed.has(id)) return true; if(qflags[id]&&qflags[id].zoomed) return true; if(mine.kenti[id]&&mine.kenti[id].v==="zoomed") return true; if(mine.hard[id]&&mine.hard[id].v==="zoomed") return true; return flagCount(id,"zoomed")>0; }
@@ -502,13 +540,14 @@ function saveCheck(id,c){
 
 /* ---- tabs & keys ---- */
 function show(t){
-  for(const k of ["round","rhard","all","lead","res","check","saved"]) $("t-"+k).setAttribute("aria-selected",k===t);
+  for(const k of ["round","rhard","all","lead","res","check","saved","stats"]) $("t-"+k).setAttribute("aria-selected",k===t);
   $("v-lead").hidden=t!=="lead"; if(t==="lead") loadLeaderboard();
+  $("v-stats").hidden=t!=="stats"; if(t==="stats") renderStats();
   const game=t==="round"||t==="rhard"||t==="all";
   $("v-game").hidden=!game; $("v-game").style.display=game?"contents":"none";
   const ckv=t==="check"||t==="saved";
   $("v-res").hidden=t!=="res"; $("v-check").hidden=!ckv;
-  $("app").classList.toggle("wide",ckv);
+  $("app").classList.toggle("wide",ckv||t==="stats");
   $("allSwitch").hidden = t!=="all";
   if(ckv){ ckMode=t==="saved"?"saved":"todo"; ckShown=40; $("ckIntro").hidden=ckMode!=="todo"; $("ckIntroSaved").hidden=ckMode!=="saved"; }
   if(inRound && round) roundBy[round.m]=round;
@@ -526,7 +565,7 @@ function show(t){
 }
 function setAllSwitch(){ document.querySelectorAll("#allSwitch button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.all===allMode)); }
 document.querySelectorAll("#allSwitch button").forEach(b=>b.addEventListener("click",()=>{ allMode=b.dataset.all; show("all"); }));
-for(const k of ["round","rhard","all","lead","res","check","saved"]) $("t-"+k).onclick=()=>show(k);
+for(const k of ["round","rhard","all","lead","res","check","saved","stats"]) $("t-"+k).onclick=()=>show(k);
 $("t-lead").hidden=!lbOn();
 $("stage").addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.id==="lbName"){ e.preventDefault(); submitLb(); } });
 $("lbRefresh").addEventListener("click",loadLeaderboard);
@@ -549,7 +588,7 @@ document.addEventListener("keydown",e=>{
 });
 
 /* ---- boot ---- */
-try{ const l=JSON.parse(localStorage.getItem("kenti-or-not-v2")||"null"); if(l&&l.kenti){ mine={kenti:l.kenti||{},hard:l.hard||{}}; reports=l.reports||{}; rounds=l.rounds||[]; qflags=l.qflags||{}; } }catch(e){}
+try{ const l=JSON.parse(localStorage.getItem("kenti-or-not-v2")||"null"); if(l&&l.kenti){ mine={kenti:l.kenti||{},hard:l.hard||{}}; reports=l.reports||{}; rounds=l.rounds||[]; qflags=l.qflags||{}; tally=l.tally&&l.tally.kenti?l.tally:{kenti:{},hard:{}}; } }catch(e){}
 loadSheetZoomed();
 show("round");
 (async()=>{
@@ -560,13 +599,14 @@ show("round");
   const uid=await u.id(); if(!uid){ clearTimeout(timer); $("gSave").textContent="Sign in to save your calls for the team"; return; }
   db=d; me=uid; myRef=db.doc("votes/"+uid);
   try{ isOwner=await u.isOwner(); }catch(e){}
-  $("t-check").hidden=!isOwner; $("t-saved").hidden=!isOwner;
+  $("t-check").hidden=!isOwner; $("t-saved").hidden=!isOwner; $("t-stats").hidden=!isOwner;
   try{
     const snap=await myRef.get(); clearTimeout(timer);
     const sv=snap.exists?snap.data():{}; const local=mine;
     mine={kenti:Object.assign({},local.kenti,sv.kenti||{}),hard:Object.assign({},local.hard,sv.hard||{})};
     reports=Object.assign({},reports,sv.reports||{});
     qflags=Object.assign({},qflags,sv.qflags||{});
+    if(sv.tally&&sv.tally.kenti) tally={kenti:Object.assign({},tally.kenti,sv.tally.kenti),hard:Object.assign({},tally.hard,sv.tally.hard||{})};
     { const seen=new Set(rounds.map(r=>r.t)); rounds=[...(sv.rounds||[]),...rounds.filter(r=>!(sv.rounds||[]).some(x=>x.t===r.t))].sort((a,b)=>a.t-b.t); }
     history={kenti:[],hard:[]}; photoIdx=0;
     if(!$("v-game").hidden){ buildQueue(); renderGame(); }
@@ -576,7 +616,7 @@ show("round");
   db.collection("checks").onSnapshot(qs=>{ checks={}; qs.docs.forEach(x=>{checks[x.id]=x.data()||{}});
     if(!$("v-check").hidden){ if(!document.activeElement||!String(document.activeElement.id).startsWith("note-")){const y=window.scrollY;renderChecks();window.scrollTo(0,y)} }
     else if(!$("v-game").hidden){ buildQueue(); renderGame(); } }, ()=>{});
-  db.collection("votes").onSnapshot(qs=>{ everyone={}; qs.docs.forEach(x=>{everyone[x.id]=x.data()||{}}); if(!$("v-res").hidden) renderResults();
+  db.collection("votes").onSnapshot(qs=>{ everyone={}; qs.docs.forEach(x=>{everyone[x.id]=x.data()||{}}); if(!$("v-res").hidden) renderResults(); if(!$("v-stats").hidden) renderStats();
     if(!$("v-check").hidden && (!document.activeElement||!String(document.activeElement.id).startsWith("note-"))){const y=window.scrollY;renderChecks();window.scrollTo(0,y)} }, ()=>{});
 })();
 </script>
