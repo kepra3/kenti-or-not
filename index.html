@@ -87,6 +87,9 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
 .pill{font:600 .7rem var(--body);padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
 .c-mag{color:var(--mag)} .c-ken{color:var(--ken)} .c-other{color:var(--no)} .c-unknown{color:var(--muted)}
 /* photo check */
+.sub{display:flex;gap:4px;border:1px solid var(--line);border-radius:12px;padding:3px;background:var(--panel);align-self:flex-start;flex-wrap:wrap}
+.sub button{border:0;background:none;color:var(--muted);font:600 .8rem var(--body);padding:6px 12px;border-radius:9px;cursor:pointer}
+.sub button[aria-pressed="true"]{background:var(--yes);color:var(--ink-on-accent)}
 .choose{display:grid;gap:10px}
 .choose button{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--fg);display:flex;flex-direction:column;gap:4px}
 .choose button b{font:700 1.05rem var(--display)}
@@ -130,9 +133,9 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
   <header>
     <h1>Kenti <span>or not?</span></h1>
     <div class="tabs" role="tablist">
-      <button id="t-round" role="tab" aria-selected="true">20-sample round</button>
-      <button id="t-kenti" role="tab" aria-selected="false">Kenti or other</button>
-      <button id="t-hard" role="tab" aria-selected="false">Hard mode</button>
+      <button id="t-round" role="tab" aria-selected="true">Kenti or not</button>
+      <button id="t-rhard" role="tab" aria-selected="false">Hard mode</button>
+      <button id="t-all" role="tab" aria-selected="false">Categorise all</button>
       <button id="t-res" role="tab" aria-selected="false">Results</button>
       <button id="t-check" role="tab" aria-selected="false" hidden>Check photos</button>
       <button id="t-saved" role="tab" aria-selected="false" hidden>Saved checks</button>
@@ -140,6 +143,9 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
   </header>
 
   <section id="v-game" style="display:contents">
+    <div class="sub" id="allSwitch" role="group" aria-label="What to categorise" hidden>
+      <button data-all="kenti" aria-pressed="true">Kenti or other</button><button data-all="hard" aria-pressed="false">Yunbenun or Widespread</button>
+    </div>
     <p class="prompt" id="gPrompt"></p>
     <div>
       <div class="status"><span id="gProgress">Loading…</span><span id="gSave"></span></div>
@@ -224,7 +230,7 @@ function report(){
 function isRight(m,s,v){ if(v==="millepora") return s.cat==="other"; return v===MODES[m].truth(s); }
 function vName(m,v){ return {unsure:"not sure",blurry:"too blurry",zoomed:"too zoomed out",millepora:"Millepora"}[v] || MODES[m].name(v); }
 let db=null, me=null, myRef=null, isOwner=false;
-let mode="kenti", inRound=false, round=null, rounds=[];
+let mode="kenti", inRound=false, round=null, rounds=[], roundBy={kenti:null,hard:null}, allMode="kenti";
 let mine={kenti:{},hard:{}}, everyone={}, checks={}, reports={}, qflags={};
 let queue=[], history={kenti:[],hard:[]}, photoIdx=0, saving=Promise.resolve();
 
@@ -248,7 +254,7 @@ function shuffleRandom(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Ma
 function startRound(m){
   const P=pool(m).filter(s=>!zoomedOut(s.id)), A=m==="kenti"?P.filter(s=>s.cat!=="other"):P.filter(s=>s.cat==="mag"), B=m==="kenti"?P.filter(s=>s.cat==="other"):P.filter(s=>s.cat==="ken");
   const ids=shuffleRandom([...shuffleRandom(A).slice(0,10),...shuffleRandom(B).slice(0,10)].map(s=>s.id));
-  round={m,ids,ans:[]}; mode=m; photoIdx=0; buildQueue();
+  round={m,ids,ans:[]}; roundBy[m]=round; mode=m; photoIdx=0; buildQueue();
   $("toast").className="toast"; $("toastText").textContent="20 samples, half of each answer. Your score shows at the end.";
   renderGame();
 }
@@ -290,10 +296,10 @@ function renderGame(){
   if(!on && inRound){ $("bRep").disabled=true; const r=round, sc=roundScore(r), M2=MODES[r.m];
     st.innerHTML=`<div class="final">
       <div class="big">${sc.right}<small> / ${r.ids.length}</small></div>
-      <div class="site">${r.m==="kenti"?"Kenti or other":"Hard mode"} · ${sc.skipped?`${sc.skipped} skipped, which count as wrong`:"no skips"}${bestOf(r.m)!==null?` · your best ${bestOf(r.m)}/20`:""}</div>
+      <div class="site">${r.m==="kenti"?"Kenti or not":"Hard mode"} · ${sc.skipped?`${sc.skipped} skipped, which count as wrong`:"no skips"}${bestOf(r.m)!==null?` · your best ${bestOf(r.m)}/20`:""}</div>
       <div class="rlist">${r.ans.map(a=>{const x=byId[a.id],sk=SKIPS.includes(a.v),ok=!sk&&isRight(r.m,x,a.v);
         return `<div><span class="${sk?"sk":ok?"ok":"no"}">${sk?"–":ok?"✓":"✕"}</span><span>${esc(x.label)} · you said ${vName(r.m,a.v)}</span><span class="site">${catText(x)}</span></div>`}).join("")}</div>
-      <div class="again"><button class="btn" style="background:var(--yes)" data-start="${r.m}">Play again</button><button class="btn flag" data-start="${r.m==="kenti"?"hard":"kenti"}">Try ${r.m==="kenti"?"hard mode":"kenti or other"}</button></div></div>`; return; }
+      <div class="again"><button class="btn" style="background:var(--yes)" data-start="${r.m}">Play again</button><button class="btn flag" data-tab="${r.m==="kenti"?"rhard":"round"}">Try ${r.m==="kenti"?"hard mode":"Kenti or not"}</button></div></div>`; return; }
   if(!on){ st.innerHTML=`<div class="empty"><h2>You've called every sample</h2><p>See how you did on the Results tab.</p></div>`; return; }
   if(queue[1]){const u=document.createElement("div");u.className="card under";u.innerHTML=cardHTML(byId[queue[1]],true);st.appendChild(u)}
   const c=document.createElement("div");c.className="card";c.id="top";c.innerHTML=cardHTML(byId[queue[0]],false);st.appendChild(c);
@@ -353,14 +359,14 @@ function persist(){
 /* ---- results ---- */
 function renderResults(){
   const box=$("resBox"); let html="";
-  if(rounds.length){ const st=m=>{const r=rounds.filter(x=>x.m===m);return r.length?`<div><b>${Math.max(...r.map(x=>x.score))}/20</b><span>best ${m==="kenti"?"kenti or other":"hard mode"} round · ${r.length} played · average ${(r.reduce((a,x)=>a+x.score,0)/r.length).toFixed(1)}</span></div>`:""};
+  if(rounds.length){ const st=m=>{const r=rounds.filter(x=>x.m===m);return r.length?`<div><b>${Math.max(...r.map(x=>x.score))}/20</b><span>best ${m==="kenti"?"Kenti or not":"Hard mode"} round · ${r.length} played · average ${(r.reduce((a,x)=>a+x.score,0)/r.length).toFixed(1)}</span></div>`:""};
     html+=`<h2 class="sec">20-sample rounds</h2><div class="score">${st("kenti")}${st("hard")}</div>`; }
   for(const m of ["kenti","hard"]){
     const M=MODES[m], P=pool(m), mineM=mine[m];
     const called=P.filter(s=>mineM[s.id]&&!SKIPS.includes(mineM[s.id].v));
     const right=called.filter(s=>isRight(m,s,mineM[s.id].v)).length;
     const classes = m==="kenti"?[["kenti","Kenti samples",s=>s.cat!=="other"],["other","Other samples",s=>s.cat==="other"]]:[["mag","Yunbenun samples",s=>s.cat==="mag"],["ken","Widespread samples",s=>s.cat==="ken"]];
-    html+=`<h2 class="sec">${m==="kenti"?"Kenti or other":"Hard mode: Yunbenun or Widespread"}</h2><div class="score">
+    html+=`<h2 class="sec">${m==="kenti"?"Categorise all: kenti or other":"Categorise all: Yunbenun or Widespread"}</h2><div class="score">
       <div><b>${called.length?Math.round(100*right/called.length):"–"}${called.length?"%":""}</b><span>your accuracy · ${right} of ${called.length} right</span></div>
       ${classes.map(([k,lab,f])=>{const c=called.filter(f),r=c.filter(s=>isRight(m,s,mineM[s.id].v)).length;return `<div><b>${c.length?Math.round(100*r/c.length)+"%":"–"}</b><span>${lab} · ${r} of ${c.length}</span></div>`}).join("")}
     </div>`;
@@ -445,20 +451,31 @@ function saveCheck(id,c){
 
 /* ---- tabs & keys ---- */
 function show(t){
-  for(const k of ["kenti","hard","round","res","check","saved"]) $("t-"+k).setAttribute("aria-selected",k===t);
-  const game=t==="kenti"||t==="hard"||t==="round";
+  for(const k of ["round","rhard","all","res","check","saved"]) $("t-"+k).setAttribute("aria-selected",k===t);
+  const game=t==="round"||t==="rhard"||t==="all";
   $("v-game").hidden=!game; $("v-game").style.display=game?"contents":"none";
   const ckv=t==="check"||t==="saved";
   $("v-res").hidden=t!=="res"; $("v-check").hidden=!ckv;
   $("app").classList.toggle("wide",ckv);
+  $("allSwitch").hidden = t!=="all";
   if(ckv){ ckMode=t==="saved"?"saved":"todo"; ckShown=40; $("ckIntro").hidden=ckMode!=="todo"; $("ckIntroSaved").hidden=ckMode!=="saved"; }
-  if(t==="round"){ if(!inRound){ inRound=true; photoIdx=0; if(round) mode=round.m; $("toast").className="toast"; $("toastText").textContent= round&&round.ans.length<round.ids.length ? "Back to your round." : "Each round is 20 fresh random samples."; } buildQueue(); renderGame(); }
-  else if(game){ const was=inRound; inRound=false; if(mode!==t||was){ mode=t; photoIdx=0; $("toast").className="toast"; $("toastText").textContent="Swipe or use the buttons. You'll see the genotype answer after each call."; } buildQueue(); renderGame(); }
+  if(inRound && round) roundBy[round.m]=round;
+  if(t==="round"||t==="rhard"){
+    const m=t==="round"?"kenti":"hard";
+    const sameRound = inRound && round && round.m===m;
+    inRound=true; mode=m; round=roundBy[m];
+    if(!round){ startRound(m); }
+    else { if(!sameRound){ photoIdx=0; $("toast").className="toast"; $("toastText").textContent= round.ans.length<round.ids.length ? "Back to your round." : "Round finished. Play again for 20 new samples."; } buildQueue(); renderGame(); }
+  }
+  else if(t==="all"){ const was=inRound; inRound=false; if(mode!==allMode||was){ mode=allMode; photoIdx=0; $("toast").className="toast"; $("toastText").textContent="Work through every sample at your own pace. You'll see the genotype answer after each call."; } setAllSwitch(); buildQueue(); renderGame(); }
+  else if(game===false && inRound){ /* keep round in memory */ }
   if(t==="res") renderResults();
   if(ckv) { renderChecks(); window.scrollTo(0,0); }
 }
-for(const k of ["kenti","hard","round","res","check","saved"]) $("t-"+k).onclick=()=>show(k);
-$("stage").addEventListener("click",e=>{ const b=e.target.closest("[data-start]"); if(b) startRound(b.dataset.start); });
+function setAllSwitch(){ document.querySelectorAll("#allSwitch button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.all===allMode)); }
+document.querySelectorAll("#allSwitch button").forEach(b=>b.addEventListener("click",()=>{ allMode=b.dataset.all; show("all"); }));
+for(const k of ["round","rhard","all","res","check","saved"]) $("t-"+k).onclick=()=>show(k);
+$("stage").addEventListener("click",e=>{ const b=e.target.closest("[data-start]"); if(b){ startRound(b.dataset.start); return; } const tb=e.target.closest("[data-tab]"); if(tb) show(tb.dataset.tab); });
 $("bL").onclick=()=>decide(MODES[mode].L.v,-1); $("bR").onclick=()=>decide(MODES[mode].R.v,1); $("bM").onclick=()=>decide("unsure",0); $("bB").onclick=()=>decide("blurry",0); $("bO").onclick=()=>decide("zoomed",0);
 $("bX").onclick=()=>{ if(mode==="kenti") decide("millepora",-1); };
 $("bUndo").onclick=undo; $("bRep").onclick=report;
