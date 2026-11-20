@@ -32,7 +32,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:6px}
 .bar i{display:block;height:100%;background:var(--yes);width:0;transition:width .3s}
 .prompt{font-family:var(--display);font-weight:600;font-size:1.05rem;margin:0}
-.stage{position:relative;min-height:420px;display:grid}
+.stage{position:relative;display:grid;padding-bottom:6px}
 .card{grid-area:1/1;background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;align-self:start;
   touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab;box-shadow:0 10px 30px -18px rgba(0,0,0,.45)}
 .card.under{transform:scale(.96) translateY(10px);opacity:.55;pointer-events:none;box-shadow:none;z-index:0}
@@ -140,6 +140,32 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
 .zoom{position:fixed;inset:0;background:rgba(4,12,13,.92);display:grid;place-items:center;z-index:20;cursor:zoom-out;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .zoom img{max-width:100%;max-height:100%;border-radius:8px}
+/* landing */
+.home{display:flex;flex-direction:column;gap:20px;min-width:0}
+.home>div{min-width:0}
+.eyebrow{font:600 .74rem var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--yes);margin:0 0 6px}
+.hero h2{font:800 clamp(1.7rem,6vw,2.3rem)/1.05 var(--display);letter-spacing:-.015em;margin:0 0 10px}
+.hero p,.home p.lede{margin:0 0 8px;line-height:1.55}
+.home h3{font:700 1.15rem var(--display);margin:0}
+.shead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.shead .site{display:block;margin-top:2px}
+.nav{display:flex;gap:6px}
+.nav button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:600 1rem var(--body);cursor:pointer}
+.strip{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px;scrollbar-width:thin}
+.ex{flex:0 0 min(78%,250px);scroll-snap-align:start;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.ex .photo{cursor:pointer}
+.ex .photo img{background:#0c2124}
+.ex .cap{padding:8px 12px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:.84rem}
+.ex .cap b{font-weight:600}
+.tagk{font:700 .7rem var(--body);text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:999px;color:var(--ink-on-accent)}
+.rules{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:8px;line-height:1.5}
+.rules b{font-weight:600}
+.playrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.playrow .btn{display:flex;flex-direction:column;gap:2px;align-items:center}
+.playrow .btn span{font:500 .78rem var(--body);opacity:.85}
+.thanks{text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}
+.thanks h3{margin-bottom:6px}
+.thanks p{margin:0 auto;color:var(--muted);max-width:46ch;line-height:1.55}
 @media (prefers-reduced-motion:reduce){.card,.bar i{transition:none!important}}
 </style>
 
@@ -147,6 +173,7 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
   <header>
     <h1>Kenti <span>or not?</span></h1>
     <div class="tabs" role="tablist">
+      <button id="t-home" role="tab" aria-selected="false">About</button>
       <button id="t-round" role="tab" aria-selected="true">Kenti or not</button>
       <button id="t-rhard" role="tab" aria-selected="false">Hard mode</button>
       <button id="t-all" role="tab" aria-selected="false">Categorise all</button>
@@ -158,6 +185,43 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
     </div>
   </header>
 
+  <section id="v-home" class="home" hidden>
+    <div class="hero">
+      <p class="eyebrow">A coral identification game</p>
+      <h2>Can you tell kenti from its look-alikes?</h2>
+      <p><i>Acropora kenti</i> is a reef-building coral that is hard to identify by eye. Genetic work shows it is two lineages, Yunbenun and Widespread, and other <i>Acropora</i> species can look very similar.</p>
+      <p>Every colony in this game was sampled in the field and genotyped, so we know the answer for each one. Your calls show us which colonies people can identify from photos, which they get wrong, and which features, such as colony shape, branching and the corallites in the close-up, help tell them apart. That helps us improve how kenti is identified on the reef.</p>
+    </div>
+    <div>
+      <div class="shead"><div><h3>This is kenti</h3><span class="site">Genotyped as Yunbenun or Widespread. Tap a photo to see the close-up.</span></div><div class="nav"><button data-scroll="exK" data-d="-1" aria-label="Scroll back">‹</button><button data-scroll="exK" data-d="1" aria-label="Scroll on">›</button></div></div>
+      <div class="strip" id="exK"></div>
+    </div>
+    <div>
+      <div class="shead"><div><h3>This is not kenti</h3><span class="site">Other species, some of which look very like kenti. Tap a photo to see the close-up.</span></div><div class="nav"><button data-scroll="exN" data-d="-1" aria-label="Scroll back">‹</button><button data-scroll="exN" data-d="1" aria-label="Scroll on">›</button></div></div>
+      <div class="strip" id="exN"></div>
+    </div>
+    <div>
+      <h3 style="margin-bottom:8px">How to play</h3>
+      <ol class="rules">
+        <li>Each round shows <b>20 colonies drawn at random</b>. Most have a whole-colony photo and a close-up: tap the photo, or the labels on it, to switch.</li>
+        <li><b>Swipe right or tap Kenti</b> if you think it's kenti. <b>Swipe left or tap Other</b> if you think it's another species.</li>
+        <li>Tap <b>Millepora</b> if you think it's <i>Acropora millepora</i>. It's scored as Other.</li>
+        <li>Use <b>Not sure</b>, <b>Too blurry</b> or <b>Too zoomed out</b> if you can't call it. These count as wrong in your score, but tell us which photos aren't good enough.</li>
+        <li>Tap <b>⚑ Something's wrong with this photo</b> if a photo looks like the wrong coral or a mistake. We'll check it.</li>
+        <li>After each call you'll see the genetic answer. At the end you get your score and can add your name to the leaderboard.</li>
+        <li>Too easy? <b>Hard mode</b> asks which kenti lineage it is: Yunbenun or Widespread.</li>
+      </ol>
+    </div>
+    <div class="playrow">
+      <button class="btn" style="background:var(--yes)" data-go="round">Play Kenti or not<span>20 colonies</span></button>
+      <button class="btn" style="background:var(--ken)" data-go="rhard">Play Hard mode<span>Yunbenun or Widespread</span></button>
+    </div>
+    <div class="thanks">
+      <h3>Thank you for helping coral science</h3>
+      <p>Every call you make adds to our data on how kenti can be identified. Calls are saved under a random player ID; your name is only shown if you choose to add it to the leaderboard.</p>
+    </div>
+  </section>
+
   <section id="v-game" style="display:contents">
     <div class="sub" id="allSwitch" role="group" aria-label="What to categorise" hidden>
       <button data-all="kenti" aria-pressed="true">Kenti or other</button><button data-all="hard" aria-pressed="false">Yunbenun or Widespread</button>
@@ -168,7 +232,6 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
       <div class="bar"><i id="gBar"></i></div>
     </div>
     <div class="stage" id="stage"></div>
-    <div class="toast" id="toast" aria-live="polite"><span id="toastText">Swipe or use the buttons. You'll see the genotype answer after each call.</span></div>
     <div class="actions">
       <button class="btn" id="bL"></button>
       <div class="xwrap"><button class="btn" id="bX" style="background:var(--maybe);width:100%">Millepora</button><span class="xnote" id="xNote">Scored as Other. It's "most likely millepora" when the field call agrees; genotyping hasn't confirmed it.</span></div>
@@ -179,6 +242,7 @@ h2.sec{font-family:var(--display);font-size:1.05rem;margin:6px 0 0}
       <button class="btn flag" id="bB">Too blurry</button>
       <button class="btn flag" id="bO">Too zoomed out</button>
     </div>
+    <div class="toast" id="toast" aria-live="polite"><span id="toastText">Swipe or use the buttons. You'll see the genotype answer after each call.</span></div>
     <button class="btn flag report" id="bRep">⚑ Something's wrong with this photo</button>
     <div class="foot">
       <button class="link" id="bUndo">Undo last</button>
@@ -295,6 +359,34 @@ let mode="kenti", inRound=false, round=null, rounds=[], roundBy={kenti:null,hard
 let mine={kenti:{},hard:{}}, everyone={}, checks={}, reports={}, qflags={}, tally={kenti:{},hard:{}};
 let queue=[], history={kenti:[],hard:[]}, photoIdx=0, saving=Promise.resolve();
 
+/* ---- landing page examples (left out of the games so they don't give answers away) ---- */
+const EX_KENTI=["2021_HB17","2022_WB37","2022_LP5","2022_HaR5","2022_WB4","2022_LP4","2022_HaR47","2021_HB14"];
+const EX_NOT=["2022_BR7","2022_BR29","2022_LP20","2022_WB17","2022_BR26","2022_HaR27","2022_BR1","2022_LP2"];
+const EXAMPLE_IDS=new Set([...EX_KENTI,...EX_NOT]);
+let homeImgs=null;
+function exCard(id,kenti){ const s=byId[id]; if(!s) return "";
+  const tag=kenti?`<span class="tagk" style="background:var(--${s.cat})">${s.cat==="mag"?"Yunbenun":"Widespread"}</span>`:`<span class="tagk" style="background:var(--no)">Not kenti</span>`;
+  const fc=!kenti&&s.morph?` · field call: ${esc(s.morph)}`:"";
+  return `<div class="ex"><div class="photo" data-ex="${id}" data-k="colony" role="button" tabindex="0" aria-label="${esc(s.label)}: show close-up"><img alt="${esc(s.label)} whole colony" data-hk="${id}_colony">
+    <div class="seg"><button data-k="colony" aria-pressed="true">Colony</button><button data-k="closeup" aria-pressed="false">Close-up</button></div></div>
+    <div class="cap"><b>${esc(s.label)}</b>${tag}<span class="site" style="flex-basis:100%">${esc(s.site)}${fc}</span></div></div>`; }
+function exSet(ph,k){ const id=ph.dataset.ex; ph.dataset.k=k; const img=ph.querySelector("img"); img.dataset.hk=id+"_"+k; img.alt=byId[id].label+(k==="colony"?" whole colony":" close-up");
+  ph.setAttribute("aria-label",byId[id].label+": show "+(k==="colony"?"close-up":"whole colony"));
+  ph.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.k===k)); if(homeImgs) img.src=homeImgs[img.dataset.hk]||""; }
+function renderHome(){
+  if(!$("exK").children.length){ $("exK").innerHTML=EX_KENTI.map(id=>exCard(id,true)).join(""); $("exN").innerHTML=EX_NOT.map(id=>exCard(id,false)).join(""); }
+  const fill=()=>$("v-home").querySelectorAll("img[data-hk]").forEach(img=>{ img.src=homeImgs[img.dataset.hk]||""; });
+  if(homeImgs){ fill(); return; }
+  fetch("p/home.json").then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>{ homeImgs=d; fill(); }).catch(()=>{});
+}
+$("v-home").addEventListener("click",e=>{
+  const go=e.target.closest("[data-go]"); if(go){ show(go.dataset.go); window.scrollTo(0,0); return; }
+  const sc=e.target.closest("[data-scroll]"); if(sc){ const el=$(sc.dataset.scroll); el.scrollBy({left:+sc.dataset.d*el.clientWidth*0.8,behavior:"smooth"}); return; }
+  const ph=e.target.closest("[data-ex]"); if(!ph) return; const b=e.target.closest(".seg button");
+  exSet(ph, b ? b.dataset.k : (ph.dataset.k==="colony"?"closeup":"colony"));
+});
+$("v-home").addEventListener("keydown",e=>{ const ph=e.target.closest&&e.target.closest("[data-ex]"); if(ph&&e.target===ph&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); exSet(ph, ph.dataset.k==="colony"?"closeup":"colony"); } });
+
 /* ---- photo bundles ---- */
 const chunks={};
 function chunk(c){ return chunks[c] ||= fetch(`p/${String(c).padStart(2,"0")}.json`).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).catch(e=>{delete chunks[c];throw e}); }
@@ -310,7 +402,7 @@ function fillImages(root){
 function hash(str){let h=2166136261;for(const c of str){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
 function shuffled(arr,seed){const a=arr.slice();let s=seed||1;for(let i=a.length-1;i>0;i--){s=(Math.imul(s,1664525)+1013904223)>>>0;const j=s%(i+1);[a[i],a[j]]=[a[j],a[i]]}return a}
 function good(s){ const c=checks[s.id]; return (c&&c.photos)? s.photos.filter((p,i)=>!["bad","blurry"].includes(c.photos["p"+(i+1)])) : s.photos; }
-function pool(m){ return SAMPLES.filter(s=>MODES[m].pool(s) && good(s).length && !zoomedOut(s.id)); }
+function pool(m){ return SAMPLES.filter(s=>MODES[m].pool(s) && good(s).length && !zoomedOut(s.id) && !EXAMPLE_IDS.has(s.id)); }
 function shuffleRandom(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a; }
 function startRound(m){
   const P=pool(m);
@@ -540,7 +632,8 @@ function saveCheck(id,c){
 
 /* ---- tabs & keys ---- */
 function show(t){
-  for(const k of ["round","rhard","all","lead","res","check","saved","stats"]) $("t-"+k).setAttribute("aria-selected",k===t);
+  for(const k of ["home","round","rhard","all","lead","res","check","saved","stats"]) $("t-"+k).setAttribute("aria-selected",k===t);
+  $("v-home").hidden=t!=="home"; if(t==="home") renderHome();
   $("v-lead").hidden=t!=="lead"; if(t==="lead") loadLeaderboard();
   $("v-stats").hidden=t!=="stats"; if(t==="stats") renderStats();
   const game=t==="round"||t==="rhard"||t==="all";
@@ -565,7 +658,7 @@ function show(t){
 }
 function setAllSwitch(){ document.querySelectorAll("#allSwitch button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.all===allMode)); }
 document.querySelectorAll("#allSwitch button").forEach(b=>b.addEventListener("click",()=>{ allMode=b.dataset.all; show("all"); }));
-for(const k of ["round","rhard","all","lead","res","check","saved","stats"]) $("t-"+k).onclick=()=>show(k);
+for(const k of ["home","round","rhard","all","lead","res","check","saved","stats"]) $("t-"+k).onclick=()=>show(k);
 $("t-lead").hidden=!lbOn();
 $("stage").addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.id==="lbName"){ e.preventDefault(); submitLb(); } });
 $("lbRefresh").addEventListener("click",loadLeaderboard);
@@ -590,7 +683,7 @@ document.addEventListener("keydown",e=>{
 /* ---- boot ---- */
 try{ const l=JSON.parse(localStorage.getItem("kenti-or-not-v2")||"null"); if(l&&l.kenti){ mine={kenti:l.kenti||{},hard:l.hard||{}}; reports=l.reports||{}; rounds=l.rounds||[]; qflags=l.qflags||{}; tally=l.tally&&l.tally.kenti?l.tally:{kenti:{},hard:{}}; } }catch(e){}
 loadSheetZoomed();
-show("round");
+show("home");
 (async()=>{
   const C=window.claude; if(!C||!C.use){ $("gSave").textContent="Saved on this device only"; return; }
   const timer=setTimeout(()=>{ if(!myRef) $("gSave").textContent="Saved on this device only"; },10000);
